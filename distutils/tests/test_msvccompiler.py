@@ -1,8 +1,11 @@
 """Tests for distutils._msvccompiler."""
 import sys
 import os
+import string
 import threading
 import unittest.mock as mock
+from tempfile import mktemp
+from os import makedirs
 
 import pytest
 
@@ -61,6 +64,23 @@ class Testmsvccompiler(support.TempdirManager):
             pytest.skip(f"VS {ver} is not installed")
         assert version >= expected_version
         assert os.path.isdir(path)
+
+    @pytest.mark.skipif('platform.system() != "Windows"')
+    def test_short_object_paths(self):
+        # issue 10551: _msvccompiler.compile should not use object paths
+        # longer than 8 characters
+        compiler = _msvccompiler.MSVCCompiler()
+        name = mktemp(('/' + string.ascii_letters) * 15)
+        makedirs(name, exist_ok=True)
+        name += '/test.c'
+        with open(name, 'w') as f:
+            f.write('int main(void) { return 0; }')
+
+        assert len(name) > 320
+        objects, _ = compiler._fix_object_args([name], '')
+
+        # was it shortened?
+        assert '~1' in objects[0]
 
 
 class CheckThread(threading.Thread):
