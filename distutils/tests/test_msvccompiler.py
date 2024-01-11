@@ -5,6 +5,7 @@ import string
 import threading
 import unittest.mock as mock
 from tempfile import mktemp
+from os import makedirs
 
 import pytest
 
@@ -69,7 +70,12 @@ class Testmsvccompiler(support.TempdirManager):
         # issue 10551: _msvccompiler.compile should not use object paths
         # longer than 8 characters
         compiler = _msvccompiler.MSVCCompiler()
-        fd, name = mktemp(string.ascii_letters * 15)
+        name = mktemp(('/' + string.ascii_letters) * 15)
+        makedirs(name, exist_ok=True)
+        name += '/test.c'
+        with open(name, 'w') as f:
+            f.write('int main(void) { return 0; }')
+
         assert len(name) > 320
         objects = compiler._fix_object_args([name], '')
 
