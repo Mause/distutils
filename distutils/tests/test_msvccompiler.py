@@ -3,6 +3,7 @@ import sys
 import os
 import threading
 import unittest.mock as mock
+from tempfile import mkstemp
 
 import pytest
 
@@ -61,6 +62,18 @@ class Testmsvccompiler(support.TempdirManager):
             pytest.skip(f"VS {ver} is not installed")
         assert version >= expected_version
         assert os.path.isdir(path)
+
+    @pytest.mark.skipif('platform.system() != "Windows"')
+    def test_short_object_paths(self):
+        # issue 10551: _msvccompiler.compile should not use object paths
+        # longer than 8 characters
+        compiler = _msvccompiler.MSVCCompiler()
+        fd, name = mkstemp('1234567890' * 10)
+        assert len(name) > 320
+        objects = compiler._fix_object_args([name], '')
+
+        # was it shortened?
+        assert '~1' in objects[0]
 
 
 class CheckThread(threading.Thread):

@@ -18,6 +18,11 @@ import subprocess
 import contextlib
 import warnings
 import unittest.mock as mock
+import ctypes
+from ctypes import wintypes
+from functools import lru_cache
+from os.path import exists
+
 
 with contextlib.suppress(ImportError):
     import winreg
@@ -176,6 +181,37 @@ def _find_exe(exe, paths=None):
         if os.path.isfile(fn):
             return fn
     return exe
+
+
+def _get_short_path(long_name: str) -> str:
+    """
+    Gets the short path name of a given long path.
+    http://stackoverflow.com/a/23598461/200291
+    """
+
+    @lru_cache()
+    def get_short_path_name_w():
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        _GetShortPathNameW = kernel32.GetShortPathNameW
+        _GetShortPathNameW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.LPWSTR,
+            wintypes.DWORD,
+        ]
+        _GetShortPathNameW.restype = wintypes.DWORD
+        return _GetShortPathNameW
+
+    assert exists(long_name), long_name
+    gspn = get_short_path_name_w()
+
+    output_buf_size = 0
+    while True:
+        output_buf = ctypes.create_unicode_buffer(output_buf_size)
+        needed = gspn(long_name, output_buf, output_buf_size)
+        if output_buf_size >= needed:
+            return output_buf.value or long_name
+        else:
+            output_buf_size = needed
 
 
 # A map keyed by get_platform() return values to values accepted by
@@ -535,6 +571,11 @@ class MSVCCompiler(CCompiler):
         warnings.warn("Fallback spawn triggered. Please update distutils monkeypatch.")
         with mock.patch.dict('os.environ', env):
             bag.value = super().spawn(cmd)
+
+    def _fix_object_args(self, objects, output_dir):
+        objects, output_dir = super()._fix_object_args(objects, output_dir)
+        objects = [_get_short_path(obj) for obj in objects]
+        return objects, output_dir
 
     # -- Miscellaneous methods -----------------------------------------
     # These are all used by the 'gen_lib_options() function, in
