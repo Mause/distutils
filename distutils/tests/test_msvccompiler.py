@@ -1,6 +1,7 @@
 """Tests for distutils._msvccompiler."""
 import sys
 import os
+import string
 import threading
 import unittest.mock as mock
 from tempfile import mkstemp
@@ -68,7 +69,7 @@ class Testmsvccompiler(support.TempdirManager):
         # issue 10551: _msvccompiler.compile should not use object paths
         # longer than 8 characters
         compiler = _msvccompiler.MSVCCompiler()
-        fd, name = mkstemp('1234567890' * 10)
+        fd, name = mkstemp(string.ascii_letters * 15)
         assert len(name) > 320
         objects = compiler._fix_object_args([name], '')
 
