@@ -77,7 +77,7 @@ class Testmsvccompiler(support.TempdirManager):
             f.write('int main(void) { return 0; }')
 
         assert len(name) > 320
-        objects = compiler._fix_object_args([name], '')
+        objects, _ = compiler._fix_object_args([name], '')
 
         # was it shortened?
         assert '~1' in objects[0]
